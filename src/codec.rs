@@ -17,7 +17,7 @@
 // WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-use bytes::{Buf, BufMut, Bytes, BytesMut, IntoBuf};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use crate::{encode, decode::{self, Error}};
 use std::{io, marker::PhantomData, usize};
 
@@ -40,7 +40,7 @@ macro_rules! encoder_decoder_impls {
                         Err(Error::Insufficient) => return Ok(None),
                         Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e))
                     };
-                src.split_to(consumed);
+                src.advance(consumed);
                 Ok(Some(number))
             }
         }
@@ -148,9 +148,8 @@ impl<T> UviBytes<T> {
     }
 }
 
-impl<T: IntoBuf> UviBytes<T> {
-    fn serialise(&mut self, item: T, dst: &mut BytesMut) -> Result<(), io::Error> {
-        let bytes = item.into_buf();
+impl<T: Buf> UviBytes<T> {
+    fn serialise(&mut self, bytes: T, dst: &mut BytesMut) -> Result<(), io::Error> {
         if bytes.remaining() > self.max {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "len > max when encoding"));
         }
@@ -183,7 +182,7 @@ impl<T> tokio_codec::Decoder for UviBytes<T> {
 }
 
 #[cfg(feature = "futures-codec")]
-impl<T: IntoBuf> futures_codec::Encoder for UviBytes<T> {
+impl<T: Buf> futures_codec::Encoder for UviBytes<T> {
     type Item = T;
     type Error = io::Error;
 
